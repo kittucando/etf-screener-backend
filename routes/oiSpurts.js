@@ -81,14 +81,32 @@ router.get('/', async (req, res) => {
       type: 'FUTURES',
     }));
 
-    const optionItems  = optData?.data || optData?.oi_underlyings_data || [];
-    const optionSpurts = optionItems.slice(0, 10).map(item => ({
-      symbol:  item.symbol || item.underlying,
-      callOI:  item.CE_sumOI || item.callOI || 0,
-      putOI:   item.PE_sumOI || item.putOI  || 0,
-      pcr:     item.pcr || (item.PE_sumOI && item.CE_sumOI ? parseFloat((item.PE_sumOI / item.CE_sumOI).toFixed(3)) : null),
-      type: 'OPTIONS',
-    }));
+    const optionItems  = optData?.data || optData?.oi_underlyings_data || optData?.oi_data || [];
+
+    // Debug: log first item's keys so we can see real NSE field names
+    if (optionItems.length > 0) {
+      console.log('[OI] Option item keys:', Object.keys(optionItems[0]).join(', '));
+      console.log('[OI] First item sample:', JSON.stringify(optionItems[0]).slice(0, 300));
+    }
+
+    const optionSpurts = optionItems.slice(0, 10).map(item => {
+      // NSE changes field names regularly — try every known variant
+      const ceOI = item.CE_sumOI  || item.CE_totOI   || item.CE?.sumOI  || item.CE?.totOI
+                 || item.callOI   || item.ceoi        || item.CE_OI      || item.totOI_CE
+                 || item.sumCEOI  || item.sumOI_CE    || 0;
+      const peOI = item.PE_sumOI  || item.PE_totOI   || item.PE?.sumOI  || item.PE?.totOI
+                 || item.putOI    || item.peoi        || item.PE_OI      || item.totOI_PE
+                 || item.sumPEOI  || item.sumOI_PE    || 0;
+      const pcr  = item.pcr
+                 || (peOI && ceOI ? parseFloat((peOI / ceOI).toFixed(3)) : null);
+      return {
+        symbol:  item.symbol || item.underlying || item.scripName,
+        callOI:  ceOI,
+        putOI:   peOI,
+        pcr,
+        type: 'OPTIONS',
+      };
+    });
 
     let marketMood = null;
     if (moodData) {
