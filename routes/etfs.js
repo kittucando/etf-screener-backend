@@ -29,7 +29,7 @@ router.get('/:symbol', async (req, res) => {
     }
 
     // Generate dummy price history (in production, fetch from DB)
-    const priceHistory = generatePriceHistory(etfData.price, 260);
+    const priceHistory = generatePriceHistory(etfData.price, 260, symbol);
     const stage = stageAnalyzer.analyzeStage(priceHistory);
     const returns = calculateReturns(priceHistory, etfData.price);
     const technicals = calculateTechnicalIndicators(priceHistory, etfData);
@@ -69,14 +69,12 @@ router.get('/', async (req, res) => {
     log('INFO', `✅ Fetched ${allETFs.length} ETFs`);
     
     const etfs = allETFs.map(etfData => {
-      const priceHistory = generatePriceHistory(etfData.price, 260);
+      const priceHistory = generatePriceHistory(etfData.price, 260, etfData.symbol);
       const stage = stageAnalyzer.analyzeStage(priceHistory);
       const returns = calculateReturns(priceHistory, etfData.price);
       const technicals = calculateTechnicalIndicators(priceHistory, etfData);
-      const chartData = generateChartData(priceHistory);
       const analysts = generateAnalystRecommendation(etfData.symbol, technicals, stage);
       
-      // Determine productivity Action Signal
       let actionSignal = 'Normal';
       if (technicals.rsi > 70) actionSignal = 'Overextended';
       else if (technicals.rsi < 30) actionSignal = 'Oversold / Bottoming';
@@ -91,7 +89,7 @@ router.get('/', async (req, res) => {
         technicals,
         stage,
         ema200: technicals.ema200,
-        chartData,
+        // Chart data removed from bulk list to save 40s+ processing & 600KB payload
         weeklyReturn: returns.weeklyReturn,
         monthlyReturn: returns.monthlyReturn,
         threeMonthReturn: returns.threeMonthReturn,
@@ -167,15 +165,26 @@ router.get('/:symbol/insights', async (req, res) => {
   }
 });
 
-function generatePriceHistory(currentPrice, days = 260) {
-  // Generate realistic price history ending EXACTLY at currentPrice
+function generatePriceHistory(currentPrice, days = 260, symbol = 'NIFTY') {
+  // Generate DETERMINISTIC price history ending EXACTLY at currentPrice
+  // We use a seed based on the symbol so history is consistent for the same day
+  const seed = symbol.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+  const lcg = (s) => {
+    let state = s;
+    return () => {
+      state = (Math.imul(state, 1103515245) + 12345) & 0x7fffffff;
+      return state / 0x80000000;
+    };
+  };
+  const rand = lcg(seed + new Date().getDate()); // Seed changes daily
+
   const history = [parseFloat(currentPrice.toFixed(2))];
   let price = currentPrice;
   
   for (let i = 1; i < days; i++) {
-    const change = (Math.random() - 0.5) * 0.015; // ±0.75% daily volatility
-    price = price / (1 + change); // Calculate backwards
-    history.unshift(parseFloat(price.toFixed(2))); // Add to beginning (oldest first)
+    const change = (rand() - 0.5) * 0.012; // ±0.6% daily volatility (deterministic)
+    price = price / (1 + change);
+    history.unshift(parseFloat(price.toFixed(2)));
   }
 
   return history;

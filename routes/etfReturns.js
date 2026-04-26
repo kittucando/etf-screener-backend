@@ -128,6 +128,7 @@ function calcReturns(data) {
     monthlyReturn:    +((( cur - at(22))  / at(22))  * 100).toFixed(2),
     threeMonthReturn: +((( cur - at(66))  / at(66))  * 100).toFixed(2),
     sixMonthReturn:   +((( cur - at(130)) / at(130)) * 100).toFixed(2),
+    oneYearReturn:    +((( cur - at(252)) / at(252)) * 100).toFixed(2),
     wk52High: +wk52High.toFixed(2),
     wk52Low:  +wk52Low.toFixed(2),
     pct52:    +pct52.toFixed(1),

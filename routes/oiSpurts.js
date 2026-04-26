@@ -5,23 +5,33 @@ const NodeCache = require('node-cache');
 
 const cache = new NodeCache({ stdTTL: 300 });
 
-// Improved NSE session: manually extract + replay cookies
+// Cache for NSE cookies to avoid slow home page handshakes
+let nseCookieCache = { cookies: {}, expires: 0 };
+
 async function getNSEClient() {
   const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
-  const cookies = {};
+  const now = Date.now();
 
-  try {
-    const homeRes = await axios.get('https://www.nseindia.com/', {
+  // Return cached client if valid (10 min TTL)
+  if (nseCookieCache.expires > now) {
+    const cookieStr = Object.entries(nseCookieCache.cookies).map(([k, v]) => `${k}=${v}`).join('; ');
+    return axios.create({
       headers: {
         'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://www.nseindia.com/market-data/live-equity-market',
+        'Cookie': cookieStr,
       },
-      timeout: 12000,
-      maxRedirects: 5,
+      timeout: 10000,
+    });
+  }
+
+  const cookies = {};
+  try {
+    log('INFO', '🔄 Initializing fresh NSE session cookies...');
+    const homeRes = await axios.get('https://www.nseindia.com/', {
+      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+      timeout: 8000,
     });
 
     const setCookieHeader = homeRes.headers['set-cookie'];
@@ -32,8 +42,10 @@ async function getNSEClient() {
         if (eq > 0) cookies[nv.slice(0, eq).trim()] = nv.slice(eq + 1).trim();
       });
     }
+    // Cache for 10 minutes
+    nseCookieCache = { cookies, expires: now + 600000 };
   } catch (err) {
-    console.warn('[NSE] Session init failed:', err.message);
+    log('WARN', '[NSE] Session init failed, using empty cookies:', err.message);
   }
 
   const cookieStr = Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -42,8 +54,6 @@ async function getNSEClient() {
     headers: {
       'User-Agent': UA,
       'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
       'Referer': 'https://www.nseindia.com/market-data/live-equity-market',
       'X-Requested-With': 'XMLHttpRequest',
       'Connection': 'keep-alive',

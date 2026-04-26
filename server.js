@@ -57,8 +57,6 @@ const etfRoutes = require('./routes/etfs');
 const historicalPricesRoute = require('./routes/historicalPrices');
 const oiSpurtsRoute = require('./routes/oiSpurts');
 const etfReturnsRoute = require('./routes/etfReturns');
-const etfNewsRoute = require('./routes/etfNews');
-const globalMarketsRoute = require('./routes/globalMarkets');
 
 log('INFO', 'Initializing API routes...');
 app.use('/api/auth', authRoutes);
@@ -68,8 +66,15 @@ app.use('/api/etfs', etfRoutes);
 app.use('/api/historical-price', historicalPricesRoute);
 app.use('/api/oi-spurts', oiSpurtsRoute);
 app.use('/api/etf-returns', etfReturnsRoute);
-app.use('/api/etf-news', etfNewsRoute);
-app.use('/api/global-markets', globalMarketsRoute);
+
+// Legacy Plural Route Handlers (Ensures compatibility with stale browser state)
+app.get('/api/global-markets', (req, res, next) => { req.url = '/global'; next(); }, marketRoutes);
+app.get('/api/etf-news', (req, res, next) => { req.url = '/news'; next(); }, marketRoutes);
+
+// New Unified Singular Routes
+app.use('/api/market/global', (req, res, next) => { req.url = '/global'; next(); }, marketRoutes);
+app.use('/api/market/news', (req, res, next) => { req.url = '/news'; next(); }, marketRoutes);
+app.use('/api/market', marketRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
