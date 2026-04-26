@@ -83,30 +83,38 @@ router.get('/', async (req, res) => {
 
     const optionItems  = optData?.data || optData?.oi_underlyings_data || optData?.oi_data || [];
 
-    // Debug: log first item's keys so we can see real NSE field names
-    if (optionItems.length > 0) {
-      console.log('[OI] Option item keys:', Object.keys(optionItems[0]).join(', '));
-      console.log('[OI] First item sample:', JSON.stringify(optionItems[0]).slice(0, 300));
-    }
-
     const optionSpurts = optionItems.slice(0, 10).map(item => {
-      // NSE changes field names regularly — try every known variant
-      const ceOI = item.CE_sumOI  || item.CE_totOI   || item.CE?.sumOI  || item.CE?.totOI
+      // NSE changes field names regularly — try every known variant + parse strings
+      const toNum = v => { const n = Number(String(v || '0').replace(/,/g, '')); return isFinite(n) ? n : 0; };
+      const ceOI = toNum(item.CE_sumOI  || item.CE_totOI   || item.CE?.sumOI  || item.CE?.totOI
                  || item.callOI   || item.ceoi        || item.CE_OI      || item.totOI_CE
-                 || item.sumCEOI  || item.sumOI_CE    || 0;
-      const peOI = item.PE_sumOI  || item.PE_totOI   || item.PE?.sumOI  || item.PE?.totOI
+                 || item.sumCEOI  || item.sumOI_CE    || item.ceOI       || item.CE_total
+                 || item.CEOI     || item.ce_oi        || item['CE OI']  || item.callOpenInterest
+                 || item.CE_sumOiPercVar || item.ceSumOI || 0);
+      const peOI = toNum(item.PE_sumOI  || item.PE_totOI   || item.PE?.sumOI  || item.PE?.totOI
                  || item.putOI    || item.peoi        || item.PE_OI      || item.totOI_PE
-                 || item.sumPEOI  || item.sumOI_PE    || 0;
-      const pcr  = item.pcr
-                 || (peOI && ceOI ? parseFloat((peOI / ceOI).toFixed(3)) : null);
+                 || item.sumPEOI  || item.sumOI_PE    || item.peOI       || item.PE_total
+                 || item.PEOI     || item.pe_oi        || item['PE OI']  || item.putOpenInterest
+                 || item.PE_sumOiPercVar || item.peSumOI || 0);
+      const pcr  = item.pcr != null
+                 ? parseFloat(Number(item.pcr).toFixed(3))
+                 : (peOI && ceOI ? parseFloat((peOI / ceOI).toFixed(3)) : null);
       return {
-        symbol:  item.symbol || item.underlying || item.scripName,
+        symbol:  item.symbol || item.underlying || item.scripName || item.scripname || item.Underlying,
         callOI:  ceOI,
         putOI:   peOI,
         pcr,
         type: 'OPTIONS',
       };
     });
+
+    // Debug: log first item's keys and sample (view server logs during market hours to find real field names)
+    if (optionItems.length > 0) {
+      console.log('[OI DEBUG] optionItem[0] keys:', Object.keys(optionItems[0]).join(', '));
+      console.log('[OI DEBUG] optionItem[0] sample:', JSON.stringify(optionItems[0]).slice(0, 400));
+      const first = optionSpurts[0];
+      console.log('[OI DEBUG] mapped -> callOI:', first?.callOI, 'putOI:', first?.putOI, 'pcr:', first?.pcr);
+    }
 
     let marketMood = null;
     if (moodData) {
@@ -143,6 +151,24 @@ router.get('/', async (req, res) => {
       futureSpurts: [], optionSpurts: [], marketMood: null,
       timestamp: new Date().toISOString(),
     });
+  }
+});
+
+// ── Debug endpoint: see raw NSE OI response (open during market hours to check field names) ──
+router.get('/debug', async (req, res) => {
+  try {
+    const client = await getNSEClient();
+    const optRes = await client.get('https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings').catch(() => null);
+    const optData = optRes?.data;
+    const items = optData?.data || optData?.oi_underlyings_data || optData?.oi_data || [];
+    res.json({
+      raw_keys: items[0] ? Object.keys(items[0]) : [],
+      first_3_items: items.slice(0, 3),
+      top_level_keys: Object.keys(optData || {}),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.json({ error: err.message });
   }
 });
 
