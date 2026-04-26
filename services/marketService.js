@@ -155,11 +155,14 @@ async function fetchNSEAllIndices() {
         'Accept': 'application/json',
         'Referer': 'https://www.nseindia.com/'
       },
-      timeout: 8000
+      timeout: 5000
     });
 
-    // Warm-up request helps NSE anti-bot layers set expected cookies.
-    await client.get('https://www.nseindia.com/');
+    // Fire warmup non-blocking — don't await it so it doesn't add to latency
+    client.get('https://www.nseindia.com/').catch(() => {});
+
+    // Small delay to let cookies be set, then fetch
+    await new Promise(r => setTimeout(r, 300));
     const response = await client.get('https://www.nseindia.com/api/allIndices');
     return response?.data?.data || [];
   } catch (error) {
@@ -497,13 +500,14 @@ async function getMarketIndices() {
 
   try {
     log('INFO', '🔄 Fetching fresh market data...');
-    
-    // Fetch market mood from TickerTape
-    let tickertapeMood = await getTickerTapeMarketMood();
-    
-    // Fetch indices
-    const nseIndices = await getRealNSEIndices();
-    const vixData = nseIndices?.vix || await getRealVIX();
+
+    // ── Fetch TickerTape mood + NSE indices IN PARALLEL (was sequential, saved 10-15s) ──
+    const [tickertapeMood, nseIndices] = await Promise.all([
+      getTickerTapeMarketMood().catch(e => { log('WARN', 'TickerTape failed', {e: e.message}); return null; }),
+      getRealNSEIndices().catch(e => { log('WARN', 'NSE indices failed', {e: e.message}); return null; }),
+    ]);
+
+    const vixData = nseIndices?.vix || await getRealVIX().catch(() => null);
 
     let indices = {
       timestamp: new Date().toISOString(),

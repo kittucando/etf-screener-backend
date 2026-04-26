@@ -17,14 +17,13 @@ const log = (level, message, data = null) => {
 
 router.get('/indices', async (req, res) => {
   try {
-    log('INFO', '📊 Fetching market indices and FII/DII data...');
-    const indices = await marketService.getMarketIndices();
-    const fiidii = await fiidiiService.getFIIDIIData();
-    
-    res.json({
-      ...indices,
-      fiidii
-    });
+    log('INFO', '📊 Fetching market indices + FII/DII in parallel...');
+    // ── Run both in parallel (was sequential — saves 5-15s) ──
+    const [indices, fiidii] = await Promise.all([
+      marketService.getMarketIndices(),
+      fiidiiService.getFIIDIIData().catch(() => null),
+    ]);
+    res.json({ ...indices, fiidii });
   } catch (error) {
     log('ERROR', '❌ Failed to fetch market indices', { error: error.message });
     res.status(500).json({ error: error.message });
@@ -33,7 +32,7 @@ router.get('/indices', async (req, res) => {
 
 router.get('/mood', async (req, res) => {
   try {
-    log('INFO', '📈 Fetching market mood...');
+    // Reuses cached result from /indices call (5-min cache in marketService)
     const indices = await marketService.getMarketIndices();
     res.json(indices.mood);
   } catch (error) {
@@ -41,6 +40,9 @@ router.get('/mood', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ── Keep-alive ping — called by frontend every 14 min to prevent Render cold starts ──
+router.get('/ping', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
 router.get('/fiidii', async (req, res) => {
   try {
