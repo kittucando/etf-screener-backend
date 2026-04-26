@@ -218,6 +218,54 @@ function getFallbackETFData() {
       volume: 1890000,
       source: 'Demo',
       timestamp: new Date().toISOString()
+    },
+    {
+      symbol: 'ITBEES',
+      name: 'Nippon India ETF IT',
+      sector: 'Technology',
+      category: 'Equity - IT',
+      price: 38.45,
+      change: 0.45,
+      changePercent: 1.18,
+      volume: 4500000,
+      source: 'Demo',
+      timestamp: new Date().toISOString()
+    },
+    {
+      symbol: 'PHARMABEES',
+      name: 'Nippon India ETF Pharma',
+      sector: 'Healthcare',
+      category: 'Equity - Pharma',
+      price: 18.25,
+      change: -0.10,
+      changePercent: -0.54,
+      volume: 2100000,
+      source: 'Demo',
+      timestamp: new Date().toISOString()
+    },
+    {
+      symbol: 'MAFANG',
+      name: 'Mirae Asset NYSE FANG+',
+      sector: 'International',
+      category: 'International',
+      price: 85.20,
+      change: 1.45,
+      changePercent: 1.73,
+      volume: 3200000,
+      source: 'Demo',
+      timestamp: new Date().toISOString()
+    },
+    {
+      symbol: 'MON100',
+      name: 'Motilal Nasdaq 100',
+      sector: 'International',
+      category: 'International',
+      price: 125.60,
+      change: 0.85,
+      changePercent: 0.68,
+      volume: 1500000,
+      source: 'Demo',
+      timestamp: new Date().toISOString()
     }
   ];
 }
@@ -245,19 +293,26 @@ async function getETFData(forceRefresh = false) {
       etfData = await fetchFromDhan();
     }
     
-    // Final fallback to demo data
+    // If all API fetches failed, but we have cached data, keep the cache!
+    if (!etfData && cachedData) {
+      log('WARN', '⚠️  All API sources failed, preserving stale cache data');
+      return cachedData;
+    }
+
+    // Final fallback to demo data (only if cache is also empty)
     if (!etfData) {
-      log('WARN', '⚠️  All API sources failed, using demo data');
+      log('WARN', '⚠️  All API sources failed and no cache, using demo data');
       etfData = getFallbackETFData();
     }
 
-    // Cache the result
+    // Cache the successful result (or demo data)
     cache.set(ETF_CACHE_KEY, etfData);
     
     return etfData;
   } catch (error) {
     log('ERROR', '❌ Critical error in getETFData', { error: error.message });
-    return getFallbackETFData();
+    const stale = cache.get(ETF_CACHE_KEY);
+    return stale || getFallbackETFData();
   }
 }
 
