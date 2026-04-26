@@ -58,6 +58,7 @@ const historicalPricesRoute = require('./routes/historicalPrices');
 const oiSpurtsRoute = require('./routes/oiSpurts');
 const etfReturnsRoute = require('./routes/etfReturns');
 const etfNewsRoute = require('./routes/etfNews');
+const globalMarketsRoute = require('./routes/globalMarkets');
 
 log('INFO', 'Initializing API routes...');
 app.use('/api/auth', authRoutes);
@@ -68,6 +69,7 @@ app.use('/api/historical-price', historicalPricesRoute);
 app.use('/api/oi-spurts', oiSpurtsRoute);
 app.use('/api/etf-returns', etfReturnsRoute);
 app.use('/api/etf-news', etfNewsRoute);
+app.use('/api/global-markets', globalMarketsRoute);
 
 // Health check
 app.get('/api/health', (req, res) => {

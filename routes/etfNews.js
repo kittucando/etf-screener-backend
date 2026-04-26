@@ -38,15 +38,16 @@ function parseRSS(xml) {
 }
 
 router.get('/', async (req, res) => {
-  const { symbol, name } = req.query;
-  if (!symbol) return res.status(400).json({ error: 'symbol is required' });
+  const { symbol, name, q } = req.query;
+  if (!symbol && !q) return res.status(400).json({ error: 'symbol or q is required' });
 
-  const cacheKey = `etf_news_${symbol}`;
+  const cacheKey = `etf_news_${q ? Buffer.from(q).toString('base64').slice(0,20) : symbol}`;
   const cached = cache.get(cacheKey);
   if (cached) return res.json(cached);
 
   try {
-    const query = buildQuery(symbol, name);
+    // If q passed directly use it; otherwise build from symbol/name
+    const query = q || buildQuery(symbol, name);
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
 
     const response = await axios.get(url, {
