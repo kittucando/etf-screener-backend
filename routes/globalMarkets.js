@@ -12,10 +12,12 @@ const SYMBOLS = [
   { symbol: '^N225',    label: 'Nikkei 225',  flag: '🇯🇵', type: 'index' },
   { symbol: '^HSI',     label: 'Hang Seng',   flag: '🇭🇰', type: 'index' },
   { symbol: '^FTSE',    label: 'FTSE 100',    flag: '🇬🇧', type: 'index' },
-  { symbol: 'GC=F',     label: 'Gold',        flag: '🥇', type: 'commodity' },
-  { symbol: 'CL=F',     label: 'Crude (WTI)', flag: '🛢️', type: 'commodity' },
-  { symbol: 'USDINR=X', label: 'USD/INR',     flag: '💱', type: 'forex'    },
-  { symbol: 'BTC-USD',  label: 'Bitcoin',     flag: '₿',  type: 'crypto'   },
+  { symbol: 'GC=F',     label: 'Gold',        flag: '🥇',  type: 'commodity' },
+  { symbol: 'CL=F',     label: 'Crude (WTI)', flag: '🛢️',  type: 'commodity' },
+  { symbol: 'SI=F',     label: 'Silver',      flag: '⚪',  type: 'commodity' },
+  { symbol: 'USDINR=X', label: 'USD/INR',     flag: '💱',  type: 'forex'    },
+  { symbol: 'EURINR=X', label: 'EUR/INR',     flag: '🇪🇺', type: 'forex'    },
+  { symbol: 'BTC-USD',  label: 'Bitcoin',     flag: '₿',   type: 'crypto'   },
 ];
 
 router.get('/', async (req, res) => {
